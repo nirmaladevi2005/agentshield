@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from backend.app.core.database import Base, engine, SessionLocal
@@ -7,27 +7,11 @@ from backend.app.models.agent import Agent, AgentPermission
 from backend.app.models.scenario import AttackScenario
 from backend.app.models.test_run import SecurityTest, TestExecution
 from backend.app.models.finding import VulnerabilityFinding, RemediationRecommendation
+from backend.app.core.config import settings
 from backend.app.data.default_scenarios import DEFAULT_ATTACK_SCENARIOS
 
-def seed_database(db: Session):
-    # Create all tables first
-    Base.metadata.create_all(bind=engine)
-
-    # 1. Check or create demo user
-    user = db.query(User).filter(User.email == "demo@agentshield.ai").first()
-    if not user:
-        user = User(
-            id=str(uuid.uuid4()),
-            email="demo@agentshield.ai",
-            name="Alex Vance",
-            role="lead_secops",
-            firebase_uid="demo_user_secops_2026"
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    # 2. Check or seed attack scenarios
+def seed_system_scenarios(db: Session):
+    """Seed built-in core attack scenario catalog (required in all environments)."""
     existing_scenarios = db.query(AttackScenario).all()
     scenario_map = {}
     if not existing_scenarios:
@@ -52,6 +36,32 @@ def seed_database(db: Session):
     else:
         for sc in existing_scenarios:
             scenario_map[sc.name] = sc
+    return scenario_map
+
+def seed_database(db: Session, force_demo: bool = False):
+    # Create all tables first
+    Base.metadata.create_all(bind=engine)
+
+    # 1. Always seed core attack scenario catalog (system requirement)
+    scenario_map = seed_system_scenarios(db)
+
+    # 2. In production, do NOT seed default demo users, mock credentials, or sample agents
+    if settings.ENVIRONMENT == "production" and not force_demo:
+        return
+
+    # 3. Check or create demo user (Development / Demo mode only)
+    user = db.query(User).filter(User.email == "demo@agentshield.ai").first()
+    if not user:
+        user = User(
+            id=str(uuid.uuid4()),
+            email="demo@agentshield.ai",
+            name="Alex Vance",
+            role="lead_secops",
+            firebase_uid="demo_user_secops_2026"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
     # 3. Check or seed agents
     existing_agents = db.query(Agent).filter(Agent.user_id == user.id).all()
