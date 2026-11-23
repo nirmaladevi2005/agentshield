@@ -9,6 +9,52 @@ const RAW_URL = (
 
 const BACKEND_BASE_URL = RAW_URL.replace(/\/api$/, '');
 
+export const authStorage = {
+  getToken: (): string | null => {
+    try {
+      return localStorage.getItem('agentshield_token');
+    } catch {
+      return null;
+    }
+  },
+  setToken: (token: string): void => {
+    try {
+      localStorage.setItem('agentshield_token', token);
+    } catch (e) {
+      console.error('Failed to set auth token', e);
+    }
+  },
+  clearToken: (): void => {
+    try {
+      localStorage.removeItem('agentshield_token');
+    } catch {}
+  },
+  getUser: (): any => {
+    try {
+      const u = localStorage.getItem('agentshield_user');
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  },
+  setUser: (user: any): void => {
+    try {
+      localStorage.setItem('agentshield_user', JSON.stringify(user));
+    } catch (e) {
+      console.error('Failed to set auth user', e);
+    }
+  },
+  clearUser: (): void => {
+    try {
+      localStorage.removeItem('agentshield_user');
+    } catch {}
+  },
+  clearAll: (): void => {
+    authStorage.clearToken();
+    authStorage.clearUser();
+  },
+};
+
 /**
  * Normalizes an API endpoint to ensure it is routed under /api without duplication.
  */
@@ -20,15 +66,28 @@ function buildApiUrl(endpoint: string): string {
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = buildApiUrl(endpoint);
+  const token = authStorage.getToken();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  };
+
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Clear expired credentials and notify listeners
+      authStorage.clearAll();
+      window.dispatchEvent(new CustomEvent('agentshield:unauthorized'));
+    }
     const errorBody = await response.text();
     throw new Error(`API Error [${response.status}]: ${errorBody || response.statusText}`);
   }
@@ -37,6 +96,24 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
 }
 
 export const api = {
+  // Authentication & Identity
+  login: (credentials: { email: string; password: string }) =>
+    fetchJson<{ access_token: string; token_type: string; user: any }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }),
+  register: (data: { email: string; password: string; name?: string; role?: string }) =>
+    fetchJson<{ access_token: string; token_type: string; user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getCurrentUser: () =>
+    fetchJson<{ id: string; email: string; name?: string; role: string; firebase_uid?: string }>('/auth/me'),
+  logout: () => {
+    authStorage.clearAll();
+    window.dispatchEvent(new CustomEvent('agentshield:logout'));
+  },
+
   getHealth: () => fetchJson<{ status: string; environment: string }>('/api/health'),
   getDashboardStats: () => fetchJson<DashboardStats>('/dashboard/stats'),
   getAgents: () => fetchJson<Agent[]>('/agents'),

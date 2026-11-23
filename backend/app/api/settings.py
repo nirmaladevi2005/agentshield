@@ -37,6 +37,12 @@ def update_gemini_settings(
     update: GeminiSettingsUpdate,
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role not in ("admin", "lead_secops"):
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Administrative privileges required to alter platform AI configurations."
+        )
+
     if update.api_key is not None:
         settings.GEMINI_API_KEY = update.api_key.strip()
     if update.model_name is not None and update.model_name.strip():

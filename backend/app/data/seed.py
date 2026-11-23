@@ -8,6 +8,7 @@ from backend.app.models.scenario import AttackScenario
 from backend.app.models.test_run import SecurityTest, TestExecution
 from backend.app.models.finding import VulnerabilityFinding, RemediationRecommendation
 from backend.app.core.config import settings
+from backend.app.core.security import get_password_hash
 from backend.app.data.default_scenarios import DEFAULT_ATTACK_SCENARIOS
 
 def seed_system_scenarios(db: Session):
@@ -57,11 +58,15 @@ def seed_database(db: Session, force_demo: bool = False):
             email="demo@agentshield.ai",
             name="Alex Vance",
             role="lead_secops",
+            hashed_password=get_password_hash("AgentShield2026!"),
             firebase_uid="demo_user_secops_2026"
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+    elif not user.hashed_password:
+        user.hashed_password = get_password_hash("AgentShield2026!")
+        db.commit()
 
     # 3. Check or seed agents
     existing_agents = db.query(Agent).filter(Agent.user_id == user.id).all()

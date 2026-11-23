@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
-import { Shield, Activity, User, ExternalLink, Sparkles } from 'lucide-react';
+import { Shield, Sparkles, LogIn, LogOut } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface NavbarProps {
   currentTab: string;
   onNavigate: (tab: string) => void;
   isLiveConnected: boolean;
+  currentUser?: any | null;
+  isAuthenticated: boolean;
+  onOpenAuth: (mode?: 'login' | 'register') => void;
+  onLogout: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, isLiveConnected }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  currentTab,
+  onNavigate,
+  isLiveConnected,
+  currentUser,
+  isAuthenticated,
+  onOpenAuth,
+  onLogout,
+}) => {
   const [resetting, setResetting] = useState<boolean>(false);
 
   const handleResetDemo = async () => {
@@ -27,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, isLiveCo
       setResetting(false);
     }
   };
+
   return (
     <header className="h-16 border-b border-shield-border bg-shield-sidebar/80 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
       {/* Brand */}
@@ -36,7 +49,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, isLiveCo
         </div>
         <div>
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-lg tracking-tight text-white font-mono">Agent<span className="text-shield-accent">Shield</span></span>
+            <span className="font-bold text-lg tracking-tight text-white font-mono">
+              Agent<span className="text-shield-accent">Shield</span>
+            </span>
             <span className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-shield-primary/20 text-shield-accent border border-shield-primary/30">
               v1.0 MVP
             </span>
@@ -86,20 +101,45 @@ export const Navbar: React.FC<NavbarProps> = ({ currentTab, onNavigate, isLiveCo
         <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-shield-card border border-shield-border text-xs">
           <span className={`w-2 h-2 rounded-full ${isLiveConnected ? 'bg-shield-success animate-pulse' : 'bg-shield-critical'}`} />
           <span className="text-shield-muted text-[11px] font-mono hidden md:inline">
-            {isLiveConnected ? 'BACKEND LIVE: 8000' : 'BACKEND OFFLINE'}
+            {isLiveConnected ? 'BACKEND LIVE' : 'BACKEND OFFLINE'}
           </span>
         </div>
 
-        {/* User Pill */}
-        <div className="flex items-center space-x-2 pl-2 border-l border-shield-border">
-          <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-shield-accent">
-            <User className="w-4 h-4" />
+        {/* Authentication Controls */}
+        {isAuthenticated && currentUser ? (
+          <div className="flex items-center space-x-3 pl-2 border-l border-shield-border">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-shield-accent font-semibold text-xs">
+                {(currentUser.name || currentUser.email || 'U')[0].toUpperCase()}
+              </div>
+              <div className="hidden lg:block text-left">
+                <p className="text-xs font-medium text-white leading-tight">
+                  {currentUser.name || currentUser.email.split('@')[0]}
+                </p>
+                <p className="text-[10px] text-shield-muted capitalize">
+                  {currentUser.role || 'Member'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              title="Sign Out"
+              className="p-1.5 rounded-lg text-shield-muted hover:text-red-400 hover:bg-shield-card transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
-          <div className="hidden lg:block text-left">
-            <p className="text-xs font-medium text-white leading-tight">Alex Vance</p>
-            <p className="text-[10px] text-shield-muted">SecOps Lead</p>
+        ) : (
+          <div className="flex items-center space-x-2 pl-2 border-l border-shield-border">
+            <button
+              onClick={() => onOpenAuth('login')}
+              className="px-3 py-1.5 rounded-lg bg-shield-primary/20 hover:bg-shield-primary/30 text-shield-accent border border-shield-primary/40 text-xs font-semibold flex items-center space-x-1.5 transition"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
           </div>
-        </div>
+        )}
       </div>
     </header>
   );
