@@ -1,9 +1,25 @@
 import { DashboardStats, Agent, AttackScenario } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Base backend URL (e.g. https://agentshield-hhxr.onrender.com or http://localhost:8000)
+// Strips trailing slashes and trailing /api to ensure a clean root base URL
+const RAW_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:8000' : 'https://agentshield-hhxr.onrender.com')
+).trim().replace(/\/+$/, '');
+
+const BACKEND_BASE_URL = RAW_URL.replace(/\/api$/, '');
+
+/**
+ * Normalizes an API endpoint to ensure it is routed under /api without duplication.
+ */
+function buildApiUrl(endpoint: string): string {
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const apiPath = path.startsWith('/api/') || path === '/api' ? path : `/api${path}`;
+  return `${BACKEND_BASE_URL}${apiPath}`;
+}
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
+  const url = buildApiUrl(endpoint);
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -21,7 +37,7 @@ async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T>
 }
 
 export const api = {
-  getHealth: () => fetchJson<{ status: string; environment: string }>('/health'),
+  getHealth: () => fetchJson<{ status: string; environment: string }>('/api/health'),
   getDashboardStats: () => fetchJson<DashboardStats>('/dashboard/stats'),
   getAgents: () => fetchJson<Agent[]>('/agents'),
   getAgent: (agentId: string) => fetchJson<Agent>(`/agents/${agentId}`),
